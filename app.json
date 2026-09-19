@@ -1,13 +1,34 @@
 {
   "expo": {
-    "name": "copiloto-responsable",
+    "name": "Copiloto Responsable",
     "slug": "copiloto-responsable",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "copiloto",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Necesitamos tu ubicación para detectar automáticamente tus viajes en auto.",
+          "locationAlwaysPermission": "Permitir que la app detecte viajes incluso en segundo plano."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Usamos el acelerómetro para analizar tu estilo de manejo."
+        }
+      ],
+      "expo-router"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.copiloto.responsable",
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "fetch"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -16,7 +37,14 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.copiloto.responsable",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "ACTIVITY_RECOGNITION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

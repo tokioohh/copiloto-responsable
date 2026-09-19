@@ -3,10 +3,23 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "^3.1.1",
+    "date-fns": "^4.4.0",
     "expo": "~57.0.23",
+    "expo-background-fetch": "^57.0.18",
+    "expo-location": "^57.0.18",
+    "expo-router": "^57.0.21",
+    "expo-sensors": "^57.0.3",
     "expo-status-bar": "~57.0.1",
+    "expo-task-manager": "^57.0.18",
+    "firebase": "^12.19.0",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "react-native-chart-kit": "^7.0.4",
+    "react-native-paper": "^5.15.3",
+    "react-native-svg": "^15.15.5",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
@@ -16,7 +29,13 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "clear": "expo start --clear",
+    "type-check": "tsc --noEmit",
+    "todos": "grep -r 'TODO Sprint' src/",
+    "status": "bash status.sh",
+    "dev-build:android": "expo run:android",
+    "dev-build:ios": "expo run:ios"
   },
   "private": true
 }
