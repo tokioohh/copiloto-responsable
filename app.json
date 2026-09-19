@@ -21,13 +21,17 @@
           "motionPermission": "Usamos el acelerómetro para analizar tu estilo de manejo."
         }
       ],
-      "expo-router"
+      "expo-router",
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.copiloto.responsable",
       "infoPlist": {
-        "UIBackgroundModes": ["location", "fetch"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
       }
     },
     "android": {
