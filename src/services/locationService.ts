@@ -4,7 +4,6 @@ import { SAMPLING_RATES, TRIP_DETECTION } from '../utils/constants';
 
 /**
  * Service for GPS location tracking
- * Sprint 2 implementation
  */
 
 export interface LocationSubscription {
@@ -13,17 +12,32 @@ export interface LocationSubscription {
 
 export const locationService = {
   /**
-   * Request location permissions
+   * Request location permissions (foreground and optional background)
    */
   requestPermissions: async (): Promise<boolean> => {
-    const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+    try {
+      const { status: foregroundStatus } =
+        await Location.requestForegroundPermissionsAsync();
 
-    if (foregroundStatus !== 'granted') {
+      if (foregroundStatus !== 'granted') {
+        return false;
+      }
+
+      // In development / Expo Go, background permissions may fail or not be supported.
+      // We attempt it safely without blocking foreground tracking.
+      try {
+        await Location.requestBackgroundPermissionsAsync();
+      } catch (e) {
+        console.log(
+          '[LocationService] Background permission skipped or not supported in this environment'
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error('[LocationService] Error requesting permissions:', error);
       return false;
     }
-
-    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-    return backgroundStatus === 'granted';
   },
 
   /**
@@ -33,32 +47,88 @@ export const locationService = {
     foreground: boolean;
     background: boolean;
   }> => {
-    const foreground = await Location.getForegroundPermissionsAsync();
-    const background = await Location.getBackgroundPermissionsAsync();
+    try {
+      const foreground = await Location.getForegroundPermissionsAsync();
+      let backgroundGranted = false;
 
-    return {
-      foreground: foreground.status === 'granted',
-      background: background.status === 'granted',
-    };
+      try {
+        const background = await Location.getBackgroundPermissionsAsync();
+        backgroundGranted = background.status === 'granted';
+      } catch {
+        backgroundGranted = false;
+      }
+
+      return {
+        foreground: foreground.status === 'granted',
+        background: backgroundGranted,
+      };
+    } catch (error) {
+      console.error('[LocationService] Error checking permissions:', error);
+      return { foreground: false, background: false };
+    }
   },
 
   /**
    * Start GPS tracking
-   * TODO Sprint 2: Implement continuous location tracking with background support
    */
-  startTracking: (callback: (data: LocationData) => void): LocationSubscription => {
-    // TODO: Use Location.watchPositionAsync with settings:
-    // - accuracy: Location.Accuracy.BestForNavigation
-    // - timeInterval: SAMPLING_RATES.GPS
-    // - distanceInterval: 5 (meters)
-    // TODO: Transform Location.LocationObject to LocationData
-    // TODO: Convert speed from m/s if needed
-    // TODO: Check accuracy against GPS_ACCURACY_THRESHOLD
+  startTracking: (
+    callback: (data: LocationData) => void
+  ): LocationSubscription => {
+    let isCancelled = false;
+    let locationSubscription: { remove: () => void } | null = null;
 
-    console.log('[LocationService] GPS tracking start - TODO Sprint 2');
+    Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: SAMPLING_RATES.GPS,
+        distanceInterval: 0, // 0 allows stationary updates
+      },
+      (location) => {
+        if (isCancelled) return;
+
+        // Discard points with accuracy worse than threshold if accuracy is reported
+        if (
+          location.coords.accuracy != null &&
+          location.coords.accuracy > TRIP_DETECTION.GPS_ACCURACY_THRESHOLD
+        ) {
+          return;
+        }
+
+        const rawSpeed = location.coords.speed;
+        const normalizedSpeed =
+          rawSpeed !== null && rawSpeed >= 0 ? rawSpeed : 0;
+
+        const locationData: LocationData = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          altitude: location.coords.altitude,
+          accuracy: location.coords.accuracy,
+          speed: normalizedSpeed,
+          heading: location.coords.heading,
+          timestamp: location.timestamp,
+        };
+
+        callback(locationData);
+      }
+    )
+      .then((sub) => {
+        if (isCancelled) {
+          sub.remove();
+        } else {
+          locationSubscription = sub;
+        }
+      })
+      .catch((err) => {
+        console.error('[LocationService] Failed to watch position:', err);
+      });
+
     return {
       unsubscribe: () => {
-        console.log('[LocationService] GPS tracking stop');
+        isCancelled = true;
+        if (locationSubscription) {
+          locationSubscription.remove();
+          locationSubscription = null;
+        }
       },
     };
   },
@@ -72,12 +142,16 @@ export const locationService = {
         accuracy: Location.Accuracy.BestForNavigation,
       });
 
+      const rawSpeed = location.coords.speed;
+      const normalizedSpeed =
+        rawSpeed !== null && rawSpeed >= 0 ? rawSpeed : 0;
+
       return {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         altitude: location.coords.altitude,
         accuracy: location.coords.accuracy,
-        speed: location.coords.speed,
+        speed: normalizedSpeed,
         heading: location.coords.heading,
         timestamp: location.timestamp,
       };
@@ -88,7 +162,7 @@ export const locationService = {
   },
 
   /**
-   * Calculate distance between two points (Haversine formula)
+   * Calculate distance between two points (Haversine formula in km)
    */
   calculateDistance: (
     lat1: number,

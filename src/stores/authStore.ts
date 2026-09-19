@@ -47,7 +47,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (userDoc.exists()) {
         set({ user: userDoc.data() as User, loading: false, error: null });
       } else {
-        set({ error: 'Usuario no encontrado', loading: false });
+        // Auto-provision user document if missing in Firestore
+        const currentFirebaseUser = auth.currentUser;
+        const newUser: User = {
+          uid,
+          email: currentFirebaseUser?.email || '',
+          displayName:
+            currentFirebaseUser?.displayName ||
+            currentFirebaseUser?.email?.split('@')[0] ||
+            'Conductor',
+          createdAt: Timestamp.now(),
+          settings: {
+            notifications: true,
+            autoDetection: true,
+            speedLimit: 80,
+          },
+          stats: {
+            totalTrips: 0,
+            averageScore: 100,
+            totalDistance: 0,
+            totalDuration: 0,
+          },
+        };
+        await setDoc(doc(db, 'users', uid), newUser, { merge: true });
+        set({ user: newUser, loading: false, error: null });
       }
     } catch (error) {
       set({ error: (error as Error).message, loading: false });

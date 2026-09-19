@@ -3,43 +3,11 @@ import { SCORE_WEIGHTS } from './constants';
 
 /**
  * Trip scoring algorithm
- * Sprint 3 implementation
  */
 
 /**
- * Calculate trip score from metrics
- * TODO Sprint 3: Implement complete scoring algorithm
- */
-export const calculateTripScore = (metrics: TripMetrics): TripScore => {
-  // TODO: Implement scoring formula:
-  // braking (max 30):     30 - (harshBrakes * 5)
-  // acceleration (max 25): 25 - (harshAccels * 5)
-  // speed (max 20):       20 - (speedingMinutes * 2)
-  // turning (max 15):     15 - (sharpTurns * 3)
-  // phoneUsage (max 10):  10 - (phonePickups * 2) [MVP: always 10]
-  //
-  // All sub-scores clamped to [0, max_weight]
-  // Total clamped to [0, 100]
-
-  console.log('[Scoring] Calculate score - TODO Sprint 3');
-
-  // Placeholder implementation
-  const breakdown: ScoreBreakdown = {
-    braking: SCORE_WEIGHTS.BRAKING_MAX,
-    acceleration: SCORE_WEIGHTS.ACCELERATION_MAX,
-    speed: SCORE_WEIGHTS.SPEED_MAX,
-    turning: SCORE_WEIGHTS.TURNING_MAX,
-    phoneUsage: SCORE_WEIGHTS.PHONE_MAX,
-  };
-
-  return {
-    total: 100,
-    breakdown,
-  };
-};
-
-/**
- * Calculate braking score component
+ * Calculate braking score component (max 30)
+ * 5 point deduction per harsh brake
  */
 export const calculateBrakingScore = (harshBrakes: number): number => {
   const score =
@@ -48,7 +16,8 @@ export const calculateBrakingScore = (harshBrakes: number): number => {
 };
 
 /**
- * Calculate acceleration score component
+ * Calculate acceleration score component (max 25)
+ * 5 point deduction per harsh acceleration
  */
 export const calculateAccelerationScore = (harshAccels: number): number => {
   const score =
@@ -58,18 +27,20 @@ export const calculateAccelerationScore = (harshAccels: number): number => {
 };
 
 /**
- * Calculate speed score component
+ * Calculate speed score component (max 20)
+ * 2 point deduction per minute of speeding
  */
 export const calculateSpeedScore = (speedingSeconds: number): number => {
   const speedingMinutes = speedingSeconds / 60;
   const score =
     SCORE_WEIGHTS.SPEED_MAX -
     speedingMinutes * SCORE_WEIGHTS.SPEED_PENALTY_PER_MINUTE;
-  return Math.max(0, Math.min(SCORE_WEIGHTS.SPEED_MAX, score));
+  return Math.max(0, Math.min(SCORE_WEIGHTS.SPEED_MAX, Math.round(score)));
 };
 
 /**
- * Calculate turning score component
+ * Calculate turning score component (max 15)
+ * 3 point deduction per sharp turn
  */
 export const calculateTurningScore = (sharpTurns: number): number => {
   const score =
@@ -78,12 +49,41 @@ export const calculateTurningScore = (sharpTurns: number): number => {
 };
 
 /**
- * Calculate phone usage score component
+ * Calculate phone usage score component (max 10)
  */
-export const calculatePhoneScore = (phonePickups: number): number => {
+export const calculatePhoneScore = (phonePickups: number = 0): number => {
   const score =
     SCORE_WEIGHTS.PHONE_MAX - phonePickups * SCORE_WEIGHTS.PHONE_PENALTY;
   return Math.max(0, Math.min(SCORE_WEIGHTS.PHONE_MAX, score));
+};
+
+/**
+ * Calculate trip score from metrics
+ */
+export const calculateTripScore = (metrics: TripMetrics): TripScore => {
+  const braking = calculateBrakingScore(metrics.harshBrakes);
+  const acceleration = calculateAccelerationScore(metrics.harshAccels);
+  const speed = calculateSpeedScore(metrics.speedingDuration);
+  const turning = calculateTurningScore(metrics.sharpTurns);
+  const phoneUsage = calculatePhoneScore(0); // MVP default
+
+  const total = Math.max(
+    0,
+    Math.min(100, Math.round(braking + acceleration + speed + turning + phoneUsage))
+  );
+
+  const breakdown: ScoreBreakdown = {
+    braking,
+    acceleration,
+    speed,
+    turning,
+    phoneUsage,
+  };
+
+  return {
+    total,
+    breakdown,
+  };
 };
 
 /**

@@ -1,27 +1,41 @@
-import { useEffect } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
-import { Text, Card, ActivityIndicator, Chip } from 'react-native-paper';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { Text, ActivityIndicator } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/stores/authStore';
 import { useTripStore } from '../../src/stores/tripStore';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import TripCard from '../../src/components/TripCard';
 
 export default function TripsScreen() {
   const user = useAuthStore((state) => state.user);
   const { trips, loading, loadTrips } = useTripStore();
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    if (user) {
+    if (user?.uid) {
       loadTrips(user.uid);
     }
-  }, [user]);
+  }, [user?.uid]);
 
-  if (loading) {
+  const onRefresh = async () => {
+    if (!user?.uid) return;
+    setRefreshing(true);
+    try {
+      await loadTrips(user.uid);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (loading && trips.length === 0) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#1E88E5" />
+        <Text variant="bodyMedium" style={styles.loadingText}>
+          Cargando historial de viajes...
+        </Text>
       </View>
     );
   }
@@ -29,11 +43,17 @@ export default function TripsScreen() {
   if (trips.length === 0) {
     return (
       <View style={styles.centered}>
-        <Text variant="bodyLarge" style={styles.emptyText}>
+        <MaterialCommunityIcons
+          name="car-off"
+          size={56}
+          color="#BDBDBD"
+          style={styles.emptyIcon}
+        />
+        <Text variant="titleMedium" style={styles.emptyText}>
           No hay viajes registrados
         </Text>
         <Text variant="bodyMedium" style={styles.emptySubtext}>
-          Comienza a conducir y tus viajes aparecerán aquí
+          Cuando comiences a conducir o ejecutes una simulación, tus viajes aparecerán aquí.
         </Text>
       </View>
     );
@@ -44,73 +64,20 @@ export default function TripsScreen() {
       data={trips}
       keyExtractor={(item) => item.id}
       contentContainerStyle={styles.list}
-      renderItem={({ item }) => {
-        const date = item.startTime.toDate();
-        const scoreColor = item.score.total >= 80 ? '#4CAF50' : item.score.total >= 60 ? '#FFC107' : '#F44336';
-
-        return (
-          <Card
-            style={styles.card}
-            onPress={() => router.push(`/trip/${item.id}`)}
-          >
-            <Card.Content>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text variant="titleMedium">
-                    {format(date, "d 'de' MMMM", { locale: es })}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.time}>
-                    {format(date, 'HH:mm')}
-                  </Text>
-                </View>
-                <Chip
-                  mode="flat"
-                  style={[styles.scoreChip, { backgroundColor: scoreColor }]}
-                  textStyle={styles.scoreChipText}
-                >
-                  {item.score.total}
-                </Chip>
-              </View>
-
-              <View style={styles.metrics}>
-                <View style={styles.metric}>
-                  <Text variant="bodySmall" style={styles.metricLabel}>
-                    Duración
-                  </Text>
-                  <Text variant="bodyMedium">
-                    {Math.floor(item.duration / 60)} min
-                  </Text>
-                </View>
-                <View style={styles.metric}>
-                  <Text variant="bodySmall" style={styles.metricLabel}>
-                    Distancia
-                  </Text>
-                  <Text variant="bodyMedium">
-                    {item.distance.toFixed(1)} km
-                  </Text>
-                </View>
-                <View style={styles.metric}>
-                  <Text variant="bodySmall" style={styles.metricLabel}>
-                    Eventos
-                  </Text>
-                  <Text variant="bodyMedium">{item.events.length}</Text>
-                </View>
-              </View>
-
-              {item.dismissed && (
-                <Chip
-                  mode="outlined"
-                  style={styles.dismissedChip}
-                  textStyle={styles.dismissedText}
-                  icon="account-off"
-                >
-                  No conduciendo
-                </Chip>
-              )}
-            </Card.Content>
-          </Card>
-        );
-      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#1E88E5']}
+          tintColor="#1E88E5"
+        />
+      }
+      renderItem={({ item }) => (
+        <TripCard
+          trip={item}
+          onPress={() => router.push(`/trip/${item.id}`)}
+        />
+      )}
     />
   );
 }
@@ -120,59 +87,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 32,
+    backgroundColor: '#F5F5F7',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#666666',
+  },
+  emptyIcon: {
+    marginBottom: 16,
   },
   emptyText: {
+    fontWeight: 'bold',
     marginBottom: 8,
-    color: '#666',
+    color: '#333333',
   },
   emptySubtext: {
-    color: '#999',
+    color: '#777777',
     textAlign: 'center',
+    lineHeight: 20,
   },
   list: {
     padding: 16,
-  },
-  card: {
-    marginBottom: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  time: {
-    color: '#666',
-    marginTop: 4,
-  },
-  scoreChip: {
-    height: 48,
-    width: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-  },
-  scoreChipText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
-  metrics: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  metric: {
-    alignItems: 'center',
-  },
-  metricLabel: {
-    color: '#666',
-    marginBottom: 4,
-  },
-  dismissedChip: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-  },
-  dismissedText: {
-    fontSize: 12,
+    backgroundColor: '#F5F5F7',
+    minHeight: '100%',
   },
 });
