@@ -39,8 +39,7 @@
     "web": "expo start --web",
     "clear": "expo start --clear",
     "type-check": "tsc --noEmit",
-    "todos": "grep -r 'TODO Sprint' src/",
-    "status": "bash status.sh",
+    "test": "node scripts/verify-logic.js",
     "dev-build:android": "expo run:android",
     "dev-build:ios": "expo run:ios"
   },

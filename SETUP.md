@@ -101,15 +101,14 @@ Si ves errores de "Missing or insufficient permissions":
 - Para background location en iOS: necesitas desarrollo build, no funciona en Expo Go
 - Para Android: necesitas declarar `ACCESS_BACKGROUND_LOCATION` (ya está en app.json)
 
-## Siguientes Pasos
+## Verificación de Conexión
 
 Una vez configurado Firebase:
 
-1. ✅ Puedes usar login/register
-2. ✅ Los usuarios se crean en Firestore
-3. 🚧 Sprint 2: Implementar sensores y trip detection
-4. 🚧 Sprint 3: Implementar scoring y sync de viajes
-5. 🚧 Sprint 4: UI completa con gráficas
+1. Inicia la app con `npm start`
+2. Regístrate con un nuevo usuario desde la pantalla de registro
+3. Verifica en Firebase Console que el usuario aparece en Authentication y en la colección `users` de Firestore
+4. Inicia un viaje de prueba y verifica la sincronización de documentos en la colección `trips`
 
 ## Testing sin Firebase
 

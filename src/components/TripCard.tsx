@@ -1,6 +1,8 @@
 import { View, StyleSheet } from 'react-native';
 import { Card, Text, Chip } from 'react-native-paper';
 import { Trip } from '../types/trip';
+import { getScoreColor } from '../utils/scoring';
+import { toJsDate } from '../utils/dateUtils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -10,9 +12,9 @@ interface TripCardProps {
 }
 
 export default function TripCard({ trip, onPress }: TripCardProps) {
-  const date = trip.startTime.toDate();
-  const scoreColor =
-    trip.score.total >= 80 ? '#4CAF50' : trip.score.total >= 60 ? '#FFC107' : '#F44336';
+  const date = toJsDate(trip.startTime);
+  const scoreColor = getScoreColor(trip.score.total);
+
 
   return (
     <Card style={styles.card} onPress={onPress}>

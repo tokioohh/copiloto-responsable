@@ -1,195 +1,83 @@
-# 🚀 Cómo Ejecutar el Proyecto
+# 🚀 Cómo Ejecutar y Probar el Proyecto
 
-## Configuración Rápida (5 minutos)
+Guía paso a paso para configurar, iniciar y probar **Copiloto Responsable** en tu entorno de desarrollo.
 
-### 1. Configurar Firebase
+---
 
-**Opción A: Usar credenciales de ejemplo (solo para ver UI)**
-- ✅ El proyecto ya tiene `.env.local` con placeholders
-- ⚠️ La autenticación NO funcionará sin credenciales reales
+## 1. Configuración de Variables de Entorno
 
-**Opción B: Configurar Firebase real (recomendado)**
-1. Abre `SETUP.md` y sigue los pasos
-2. Copia tus credenciales a `.env.local`
-3. Despliega las reglas: `firebase deploy --only firestore:rules`
+1. Crea tu archivo de entorno local a partir de la plantilla:
+   ```bash
+   cp .env.example .env.local
+   ```
+2. Completa tus credenciales de Firebase en `.env.local` (puedes consultar [SETUP.md](./SETUP.md) para los pasos detallados de creación en Firebase Console).
 
-### 2. Iniciar el Proyecto
+---
+
+## 2. Iniciar el Servidor de Desarrollo
 
 ```bash
-# Ya están instaladas las dependencias, solo ejecuta:
+# Iniciar Expo con Metro Bundler
 npm start
 ```
 
-### 3. Abrir en Dispositivo
-
-**Con Expo Go (más rápido para empezar):**
-1. Instala Expo Go en tu teléfono
-   - iOS: [App Store](https://apps.apple.com/app/expo-go/id982107779)
-   - Android: [Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)
-2. Escanea el QR que aparece en la terminal
-
-**Con simulador (si tienes uno instalado):**
-- iOS: Presiona `i` en la terminal
-- Android: Presiona `a` en la terminal
+### Opciones de visualización:
+- **Dispositivo físico (Recomendado)**:
+  1. Instala **Expo Go** desde Google Play o App Store.
+  2. Escanea el código QR que se imprime en tu terminal.
+- **Emulador Android**: Presiona `a` en la terminal donde corre Expo.
+- **Simulador iOS**: Presiona `i` en la terminal.
 
 ---
 
-## Testing del Sprint 1
+## 3. Pruebas y Flujos Principales
 
-### ✅ Lo que FUNCIONA ahora (con Firebase configurado)
+### A. Autenticación y Perfil
+1. **Registro**: Crea una cuenta nueva con correo y contraseña.
+2. **Persistencia**: Cierra la aplicación y vuelve a abrirla; tu sesión se mantendrá activa automáticamente.
+3. **Ajustes**: Ve a la pestaña **Perfil** para configurar alertas, límites de velocidad y tema.
 
-1. **Registro de Usuario**
-   - Abre la app
-   - Toca "Regístrate"
-   - Ingresa email y contraseña
-   - Verifica en Firebase Console que se creó el usuario
+### B. Monitoreo y Simulación de Manejo (Dashboard)
+1. **Detección Automática**:
+   - En condiciones reales, al superar 15 km/h durante 10 segundos, el estado pasará de `STANDBY` a `INICIANDO` y luego a `VIAJE EN CURSO`.
+   - Al detenerse por más de 60 segundos, el viaje finalizará automáticamente.
+2. **Simulador Integrado**:
+   - En la tarjeta **Simulador de Pruebas**, pulsa el botón **35 km/h** o **90 km/h** para activar una marcha continua.
+   - Observa la actualización en tiempo real del velocímetro, cronómetro y distancia acumulada.
+   - Pulsa los botones de maniobra para inyectar eventos de prueba (*Frenada Brusca*, *Aceleración*, *Curva Peligrosa*).
+   - Pulsa **0 km/h** o **Terminar y Guardar Viaje** para procesar y sincronizar con Firestore.
 
-2. **Login**
-   - Cierra la app (force quit)
-   - Abre de nuevo
-   - Login automático por persistencia
-   - O logout y login manual
-
-3. **Navegación**
-   - Tabs: Inicio, Viajes, Perfil
-   - Todas las pantallas son navegables
-
-4. **Settings**
-   - Ve a Perfil
-   - Cambia configuraciones
-   - Se guardan en AsyncStorage local
-
-### ⚠️ Lo que aún NO funciona (Sprints 2-4)
-
-- ❌ Detección automática de viajes (Sprint 2)
-- ❌ Sensores (acelerómetro/GPS) (Sprint 2)
-- ❌ Cálculo de puntajes (Sprint 3)
-- ❌ Gráficas con datos reales (Sprint 4)
-- ❌ Historial de viajes desde Firestore (Sprint 3)
+### C. Historial y Detalle de Viaje
+1. Ve a la pestaña **Viajes** para ver el historial ordenado cronológicamente.
+2. Desliza hacia abajo (**Pull-to-refresh**) para recargar viajes desde Firestore.
+3. Toca cualquier viaje para acceder a su **Detalle**:
+   - Medidor `ScoreGauge` interactivo con puntaje global (0-100).
+   - Barras de progreso con el desglose de los 5 factores de conducción.
+   - Cronología de eventos detectados con telemetría exacta (fuerzas G, velocidad y ángulos).
+   - Botón *"No soy el conductor"* para descartar el viaje si ibas como pasajero.
 
 ---
 
-## Verificar que Todo Esté Bien
-
-### Check 1: Compilación
-```bash
-npx tsc --noEmit
-```
-**Resultado esperado**: Sin output (significa sin errores)
-
-### Check 2: Firebase Connection
-1. Configura Firebase en `.env.local`
-2. Abre la app
-3. Intenta registrarte
-4. Ve a [Firebase Console](https://console.firebase.google.com/)
-5. Authentication → Users → Deberías ver el usuario
-
-### Check 3: Firestore
-1. Después del registro
-2. Ve a Firestore Database en Firebase Console
-3. Colección `users` → Deberías ver tu documento de usuario
-
----
-
-## Estructura del Proyecto
-
-```
-copiloto-responsable/
-├── app/                      # Pantallas (Expo Router)
-│   ├── (auth)/              # Login/Register
-│   ├── (tabs)/              # Home, Viajes, Perfil
-│   └── trip/                # Detalle de viaje
-│
-├── src/
-│   ├── components/          # UI components reutilizables
-│   ├── services/            # Lógica de negocio
-│   ├── stores/              # Estado global (Zustand)
-│   ├── types/               # TypeScript types
-│   ├── utils/               # Utilidades
-│   └── config/              # Configuración
-│
-├── .env.local               # ⚠️ TUS CREDENCIALES AQUÍ
-├── firebase.json            # Config Firebase
-├── firestore.rules          # Reglas de seguridad
-└── package.json             # Dependencias
-```
-
----
-
-## Troubleshooting Común
-
-### "Firebase app already exists"
-```bash
-npx expo start --clear
-```
-
-### "Permission denied" en Firestore
-- Verifica que desplegaste las reglas: `firebase deploy --only firestore:rules`
-- Verifica en Firebase Console > Firestore > Reglas
-
-### La app no abre
-```bash
-# Limpia cache y reinstala
-npx expo start --clear
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### Sensores no funcionan
-- ⚠️ Normal: Sensores y GPS se implementan en Sprint 2
-- Expo Go tiene limitaciones con background location
-- Para testing real de sensores: necesitarás development build
-
----
-
-## Próximos Pasos de Desarrollo
-
-### Sprint 2 (siguiente)
-```bash
-# Implementar servicios de sensores
-code src/services/sensorService.ts
-code src/services/locationService.ts
-code src/services/tripDetector.ts
-```
-
-Ver `PROJECT_STATUS.md` para roadmap completo.
-
----
-
-## Recursos Útiles
-
-- 📖 [Expo Docs](https://docs.expo.dev/)
-- 🔥 [Firebase Console](https://console.firebase.google.com/)
-- 📱 [Expo Go](https://expo.dev/go)
-- 💬 [Expo Discord](https://chat.expo.dev/)
-
----
-
-## Comandos Útiles
+## 4. Verificación de Código y Tests
 
 ```bash
-# Iniciar proyecto
-npm start
+# Ejecutar verificación de tipos TypeScript
+npm run type-check
 
-# Limpiar cache
-npx expo start --clear
+# Ejecutar suite de pruebas de lógica y algoritmos
+npm test
+```
 
-# Ver logs detallados
-npx expo start --verbose
+---
 
-# Compilar TypeScript
-npx tsc --noEmit
+## 5. Solución de Problemas Comunes
 
-# Deploy Firebase rules
+### Error: "Firebase app already exists"
+Ejecuta `npm run clear` para vaciar el caché de Metro y reiniciar limpiamente.
+
+### Error: "Missing or insufficient permissions" en Firestore
+Asegúrate de haber desplegado las reglas de seguridad:
+```bash
 firebase deploy --only firestore:rules
 ```
-
----
-
-**¿Listo para empezar?**
-
-```bash
-npm start
-```
-
-🎉 ¡El proyecto está funcionando! Escanea el QR y explora la app.
+Verifica en Firebase Console que tu base de datos Firestore esté en modo producción con las reglas provistas en `firestore.rules`.

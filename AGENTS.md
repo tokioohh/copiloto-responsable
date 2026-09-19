@@ -1,432 +1,164 @@
-# Copiloto Responsable - Agent Handoff
+# Copiloto Responsable - Guía de Arquitectura y Desarrollo
 
-> App móvil tipo "fitness tracker" para conducción. Analiza calidad de manejo usando sensores del smartphone y calcula puntaje 0-100 por viaje.
-
----
-
-## Estado Actual: Sprint 1 Completado ✅
-
-**Fecha**: 2026-09-18  
-**Version**: 1.0.0 MVP  
-**Expo SDK**: 57 (latest stable)
-
-### Lo que funciona:
-- ✅ Autenticación completa (Firebase Auth)
-- ✅ Navegación con Expo Router
-- ✅ CRUD de usuarios en Firestore
-- ✅ Settings locales con AsyncStorage
-- ✅ UI completa (todas las pantallas)
-
-### Lo que falta (Sprints 2-4):
-- 🚧 Sensores y GPS (Sprint 2)
-- 🚧 Trip detection automático (Sprint 2)
-- 🚧 Scoring y eventos (Sprint 3)
-- 🚧 Gráficas con datos reales (Sprint 4)
+> App móvil de telemetría y seguridad vial que analiza el estilo de conducción del usuario utilizando los sensores del smartphone (acelerómetro, giroscopio y GPS) para calcular un puntaje de manejo seguro (0-100) por recorrido.
 
 ---
 
 ## Stack Tecnológico
 
-```
-Frontend: React Native + Expo 57
-Routing: Expo Router (file-based)
-Backend: Firebase (Auth + Firestore)
-State: Zustand
-UI: React Native Paper
-Charts: react-native-chart-kit
-```
-
-**Importante**: Usamos Firebase **JS SDK** (NO `@react-native-firebase`) para compatibilidad con Expo Go.
+- **Frontend**: React Native + Expo SDK 57
+- **Enrutamiento**: Expo Router (file-based routing)
+- **Backend**: Firebase JS SDK v12 (Authentication + Cloud Firestore)
+- **Manejo de Estado**: Zustand
+- **Diseño & Componentes**: React Native Paper
+- **Visualización de Datos**: React Native Chart Kit + React Native SVG
 
 ---
 
 ## Arquitectura del Proyecto
 
 ```
-app/                    # Screens (Expo Router)
-  (auth)/              # Login/Register - protegidas
-  (tabs)/              # Home, Trips, Profile - requieren auth
-  trip/[id].tsx        # Dynamic route - detalle de viaje
+app/                          # Pantallas y rutas protegidas (Expo Router)
+  (auth)/                    # Autenticación (Login / Registro)
+  (tabs)/                    # Navegación principal por pestañas
+    index.tsx                # Dashboard principal, telemetría y simulación
+    trips.tsx                # Historial de viajes con pull-to-refresh
+    profile.tsx              # Ajustes de usuario y configuración
+  trip/[id].tsx              # Detalle de viaje, métricas y desglose
 
 src/
-  stores/              # Zustand state management
-    authStore.ts       # ✅ COMPLETO - auth con Firebase
-    tripStore.ts       # 🚧 Estructura, TODOs Sprint 3
-    settingsStore.ts   # ✅ COMPLETO - settings locales
+  stores/                    # Estado global con Zustand
+    authStore.ts             # Sesión, usuario y perfil de Firestore
+    tripStore.ts             # Viaje en curso, historial local y sincronización
+    settingsStore.ts         # Preferencias locales (AsyncStorage)
     
-  services/            # Business logic
-    sensorService.ts   # 🚧 TODO Sprint 2 - acelerómetro/giroscopio
-    locationService.ts # 🚧 TODO Sprint 2 - GPS tracking
-    tripDetector.ts    # 🚧 TODO Sprint 2 - auto start/stop
-    tripProcessor.ts   # 🚧 TODO Sprint 3 - scoring pipeline
-    firebaseService.ts # 🚧 TODO Sprint 3 - Firestore CRUD
+  services/                  # Lógica de negocio y servicios externos
+    sensorService.ts         # Acelerómetro y giroscopio con muestreo adaptativo
+    locationService.ts       # Seguimiento GPS y cálculo de distancias (Haversine)
+    tripDetector.ts          # Máquina de estados para inicio/fin automático
+    tripProcessor.ts         # Pipeline de detección de eventos y métricas
+    firebaseService.ts       # Operaciones de Firestore (viajes, usuarios, estadísticas)
     
   utils/
-    sensorFusion.ts    # 🚧 TODO Sprint 3 - event detection
-    scoring.ts         # 🚧 TODO Sprint 3 - score calculation
-    constants.ts       # ✅ Thresholds y config
+    sensorFusion.ts          # Algoritmos de validación de maniobras bruscas
+    scoring.ts               # Algoritmo de cálculo de puntaje (0-100)
+    dateUtils.ts             # Normalización de fechas y Timestamps de Firestore
+    constants.ts             # Umbrales físicos, tiempos y pesos de puntuación
     
-  types/               # ✅ COMPLETO - TypeScript interfaces
-  components/          # ✅ COMPLETO - UI components base
+  components/                # Componentes UI reutilizables
+    ScoreGauge.tsx           # Indicador concéntrico de puntaje con calificación
+    TrendChart.tsx           # Gráfica de evolución temporal (LineChart)
+    TripCard.tsx             # Tarjeta resumen de viaje para listas
+    EventTimeline.tsx        # Línea de tiempo de eventos con telemetría
+    DismissTripButton.tsx    # Acción "No soy el conductor"
+    MetricRow.tsx            # Fila de métricas clave
+
   config/
-    firebase.ts        # ✅ Firebase SDK init
+    firebase.ts              # Inicialización y configuración de Firebase SDK
 ```
 
 ---
 
-## Decisiones de Arquitectura Clave
+## Decisiones Clave de Diseño
 
-### 1. Firebase JS SDK (no Native)
-**Por qué**: Expo Go compatible, no requiere development build para Sprint 1.  
-**Trade-off**: Limitaciones en background tasks (se resuelve en Sprint 2 con dev build).
+### 1. Firebase JS SDK
+Utiliza el SDK de JavaScript de Firebase para compatibilidad directa tanto en Expo Go como en builds nativos de desarrollo, simplificando la iteración rápida.
 
-### 2. No Storage de Datos Raw
-**Por qué**: Minimizar costos de Firestore y storage.  
-**Cómo**: Procesamos sensores en tiempo real, solo guardamos eventos detectados.
+### 2. Procesamiento en Tiempo Real sin Almacenamiento Raw
+No se guardan lecturas continuas de sensores en la base de datos para minimizar consumo de datos, batería y costos de almacenamiento. Solo se registran los eventos confirmados y métricas acumuladas.
 
-### 3. Scoring Post-Viaje
-**Por qué**: Ahorro de batería, menos distracción al conducir.  
-**Cómo**: Se calcula localmente al finalizar viaje, se sube a Firestore.
+### 3. Pipeline de Scoring Post-Viaje
+Al terminar el viaje, se procesan los buffers de eventos y rutas localmente, calculando el puntaje y las métricas antes de sincronizar el documento final en Firestore.
 
-### 4. Expo Router (no React Navigation)
-**Por qué**: File-based routing más simple, menos boilerplate.  
-**Estructura**: `(auth)` y `(tabs)` groups para rutas protegidas.
+### 4. Detección Automática con Máquina de Estados
+Implementa 4 estados controlados:
+- **`idle`**: Vehículo en reposo.
+- **`starting`**: Velocidad $\ge 15\text{ km/h}$ detectada continuamente por $10\text{ segundos}$.
+- **`active`**: Viaje en curso (registro de telemetría y eventos).
+- **`ending`**: Vehículo detenido ($< 5\text{ km/h}$) por $60\text{ segundos}$ continuos.
 
-### 5. Adaptive Sampling
-**Estrategia**: 5Hz durante eventos, 2Hz en calma (después de 60s sin eventos).  
-**Implementación**: Sprint 2 en `sensorService.ts`.
+### 5. Muestreo Adaptativo de Sensores
+- **Frecuencia alta (5 Hz)** durante la conducción y maniobras activas.
+- **Frecuencia reducida (2 Hz)** tras períodos prolongados sin actividad para optimizar la batería.
 
 ---
 
-## Flujo de Datos
+## Algoritmo de Puntuación (0-100)
 
-### Durante el Viaje (Sprint 2-3)
-```
-GPS detecta movimiento (>15km/h por 10s)
-  ↓
-tripDetector.onTripStart() → tripStore.startTrip()
-  ↓
-Background task inicia sensores + GPS
-  ↓
-Cada 200ms: accel/gyro → sensorFusion.detectEvents()
-Cada 1s: GPS → routeBuffer
-  ↓
-Eventos detectados → eventBuffer (local)
-  ↓
-GPS detecta parada (<5km/h por 60s)
-  ↓
-tripDetector.onTripEnd() → tripStore.endTrip()
-```
-
-### Post-Viaje (Sprint 3)
-```
-tripProcessor.finalizeTrip(activeTrip)
-  ↓
-calculateMetrics(eventBuffer + routeBuffer)
-  ↓
-calculateTripScore(metrics)
-  ↓
-firebaseService.uploadTrip(trip)
-  ↓
-updateUserStats(userId)
-  ↓
-Clear local buffers
-```
+| Categoría | Peso Máximo | Penalización |
+|---|---|---|
+| **Frenado Suave** | 30 pts | $-5\text{ pts}$ por frenada brusca |
+| **Aceleración Progresiva** | 25 pts | $-5\text{ pts}$ por aceleración brusca |
+| **Velocidad Regulada** | 20 pts | $-2\text{ pts}$ por minuto sobre el límite |
+| **Giros Controlados** | 15 pts | $-3\text{ pts}$ por giro brusco |
+| **Atención al Volante** | 10 pts | $-2\text{ pts}$ por manipulación indebida |
 
 ---
 
 ## Modelo de Datos (Firestore)
 
-### Collection: `users`
+### Colección: `users`
 ```typescript
 {
-  uid: string
-  email: string
-  displayName?: string
-  settings: { notifications, autoDetection, speedLimit }
-  stats: { totalTrips, averageScore, totalDistance, totalDuration }
+  uid: string;
+  email: string;
+  displayName?: string;
+  settings: {
+    notifications: boolean;
+    autoDetection: boolean;
+    speedLimit: number;
+  };
+  stats: {
+    totalTrips: number;
+    averageScore: number;
+    totalDistance: number;   // km
+    totalDuration: number;   // segundos
+  };
 }
 ```
 
-### Collection: `trips`
+### Colección: `trips`
 ```typescript
 {
-  id: string
-  userId: string
-  startTime: Timestamp
-  endTime: Timestamp
-  distance: number        // km
-  duration: number        // seconds
-  dismissed: boolean      // "No soy conductor"
-  route: RoutePoint[]     // GPS points with timestamp/speed
-  events: DrivingEvent[]  // harsh_brake, harsh_accel, sharp_turn, speeding
-  metrics: {
-    harshBrakes, harshAccels, sharpTurns,
-    speedingDuration, averageSpeed, maxSpeed
-  }
+  id: string;
+  userId: string;
+  startTime: Timestamp;
+  endTime: Timestamp;
+  duration: number;          // segundos
+  distance: number;          // km
+  dismissed: boolean;        // true si el usuario no conducía
+  route: RoutePoint[];       // coordenadas muestreadas
+  events: DrivingEvent[];    // frenadas, aceleraciones, giros, excesos
+  metrics: TripMetrics;
   score: {
-    total: 0-100
-    breakdown: { braking, acceleration, speed, turning, phoneUsage }
-  }
+    total: number;           // 0-100
+    breakdown: ScoreBreakdown;
+  };
 }
 ```
 
 ---
 
-## Configuración Requerida
+## Comandos del Proyecto
 
-### Firebase Setup
-1. Crear proyecto en Firebase Console
-2. Habilitar Auth (Email/Password)
-3. Crear Firestore database
-4. Copiar credenciales a `.env.local`
-5. Deploy rules: `firebase deploy --only firestore:rules`
-
-Ver **`SETUP.md`** para guía paso a paso.
-
-### Variables de Entorno
 ```bash
-# .env.local
-EXPO_PUBLIC_FIREBASE_API_KEY=...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-EXPO_PUBLIC_FIREBASE_APP_ID=...
-```
-
----
-
-## Testing
-
-### Sprint 1 (funciona ahora con Expo Go)
-```bash
+# Iniciar servidor de desarrollo Expo
 npm start
-# Escanear QR con Expo Go
-# Probar: register → login → navegación → settings
-```
 
-### Sprint 2+ (requiere development build)
-```bash
-# Background location no funciona en Expo Go
-npx expo run:android
-npx expo run:ios
-```
+# Ejecutar suite de pruebas de lógica
+npm test
 
-### Verificación TypeScript
-```bash
-npx tsc --noEmit  # Debe pasar sin errores
+# Verificación de tipos TypeScript
+npm run type-check
+
+# Limpiar cache de Metro
+npm run clear
 ```
 
 ---
 
-## Roadmap (12 semanas totales)
+## Convenciones
 
-### Sprint 2: Sensors + Detection (2 semanas) 🔜
-**Prioridad alta**: Implementar servicios de sensores.
-
-```typescript
-// src/services/sensorService.ts
-startAccelerometer(callback) // Expo.Accelerometer
-startGyroscope(callback)     // Expo.Gyroscope
-setSamplingRate(200)         // Adaptive: 200ms → 500ms
-
-// src/services/locationService.ts
-startTracking(callback)      // Location.watchPositionAsync
-requestPermissions()         // Background location
-
-// src/services/tripDetector.ts
-processLocation(location)    // State machine: idle → active → idle
-// Triggers: onTripStart, onTripEnd
-```
-
-**Archivos a modificar**:
-- `src/services/{sensor,location,tripDetector}Service.ts`
-- `src/stores/tripStore.ts` (integrar detección)
-- `app/(tabs)/index.tsx` (UI de viaje activo)
-
-**Testing**: Dispositivo real con GPS + movimiento en auto.
-
----
-
-### Sprint 3: Processing + Scoring (2 semanas)
-**Prioridad alta**: Implementar algoritmos de fusión y scoring.
-
-```typescript
-// src/utils/sensorFusion.ts
-detectHarshBraking(accel, gyro, location)
-// 4-signal validation: accel magnitude + GPS speed + gyro stable + direction
-
-// src/utils/scoring.ts
-calculateTripScore(metrics)
-// braking(30) + accel(25) + speed(20) + turning(15) + phone(10) = 100
-
-// src/services/firebaseService.ts
-uploadTrip(trip)
-loadUserTrips(userId, limit)
-```
-
-**Testing**: Mock de eventos, verificar scores esperados.
-
----
-
-### Sprint 4: UI + Visualization (2 semanas)
-**Prioridad media**: Completar dashboards y gráficas.
-
-```typescript
-// src/components/TrendChart.tsx
-<LineChart data={scores} labels={dates} />
-
-// app/(tabs)/index.tsx
-- Score gauge animado con datos reales
-- Weekly trend chart
-- Last trip preview
-```
-
-**Testing**: Verificar renders, performance en listas largas.
-
----
-
-### Sprint 5: Polish (2 semanas)
-- Battery optimization audit
-- False positive tuning
-- Error states elegantes
-- Loading states
-
-### Sprint 6: Beta (2 semanas)
-- Onboarding flow
-- Internal testing 5-10 usuarios
-- App store submission
-
----
-
-## Troubleshooting Común
-
-### "Firebase app already exists"
-```bash
-npx expo start --clear
-```
-
-### Auth no funciona
-- Verificar `.env.local` tiene credenciales correctas
-- Verificar Firebase Auth está habilitado en Console
-
-### Firestore permission denied
-```bash
-firebase deploy --only firestore:rules
-# Verificar en Firebase Console > Firestore > Rules
-```
-
-### Sensores no responden (Sprint 2+)
-- Expo Go tiene limitaciones → usar development build
-- Verificar permisos en device settings
-- iOS background location requiere `UIBackgroundModes` en app.json (✅ ya está)
-
----
-
-## Convenciones de Código
-
-### Idiomas
-- **Código**: Inglés (variables, funciones, tipos)
-- **UI strings**: Español (textos visibles al usuario)
-- **Comentarios**: Inglés (solo cuando el "por qué" no es obvio)
-
-### Estructura
-```typescript
-// Services: Pure functions, no state
-export const serviceName = {
-  method1: () => {},
-  method2: () => {},
-}
-
-// Stores: Zustand with actions
-export const useStore = create<State>((set, get) => ({
-  value: initialValue,
-  action: () => set({ ... }),
-}))
-
-// Components: Functional with TypeScript
-interface Props { ... }
-export default function Component({ }: Props) { ... }
-```
-
----
-
-## Métricas de Éxito (MVP)
-
-- ✅ Trip detection rate > 95%
-- ✅ False positive events < 10% per trip
-- ✅ Battery < 15% por hora de viaje
-- ✅ Post-trip sync < 10 segundos
-- ✅ App estable en background 24+ horas
-
----
-
-## Referencias Rápidas
-
-| Archivo | Propósito |
-|---------|-----------|
-| `EJECUTAR_PROYECTO.md` | 🚀 Cómo iniciar el proyecto |
-| `SETUP.md` | Configuración Firebase detallada |
-| `PROJECT_STATUS.md` | Roadmap completo de sprints |
-| `IMPLEMENTATION_SUMMARY.md` | Resumen técnico |
-
-### Expo v57 Docs
-- [Sensors](https://docs.expo.dev/versions/v57.0.0/sdk/sensors/)
-- [Location](https://docs.expo.dev/versions/v57.0.0/sdk/location/)
-- [Task Manager](https://docs.expo.dev/versions/v57.0.0/sdk/task-manager/)
-
-### External APIs
-- [Firebase Auth](https://firebase.google.com/docs/auth/web/start)
-- [Firestore](https://firebase.google.com/docs/firestore)
-- [React Native Paper](https://callstack.github.io/react-native-paper/)
-
----
-
-## Contacto / Handoff
-
-**Proyecto creado**: 2026-09-18  
-**Contrato original**: Ver archivo raíz del proyecto  
-**Estado Git**: Inicializado, sin commits aún
-
-**Para continuar desarrollo**:
-1. Lee `PROJECT_STATUS.md` para contexto completo
-2. Configura Firebase con `SETUP.md`
-3. Ejecuta `npm start` para verificar Sprint 1
-4. Comienza Sprint 2 implementando `sensorService.ts`
-
-**Archivos con TODOs Sprint 2-3**:
-```bash
-grep -r "TODO Sprint" src/
-# Lista todos los TODOs pendientes
-```
-
----
-
-## Notas Importantes para Agentes
-
-### Al modificar autenticación
-- `authStore.ts` maneja todo el flujo de auth
-- Protected routes en `app/(auth)/_layout.tsx` (auto-redirect)
-- Firestore rules validan userId match
-
-### Al implementar sensores (Sprint 2)
-- Leer thresholds en `src/utils/constants.ts` PRIMERO
-- Adaptive sampling es crítico para batería
-- Trip detection es state machine (4 estados: idle/starting/active/ending)
-
-### Al implementar scoring (Sprint 3)
-- Fórmula exacta en `src/utils/scoring.ts` (comentarios)
-- Sensor fusion requiere 4 validaciones simultáneas
-- No cambiar pesos de score sin justificación documentada
-
-### Al implementar UI (Sprint 4)
-- React Native Paper theme ya configurado
-- date-fns con locale `es` para español
-- Chart kit necesita dimensions del screen
-
----
-
-**Estado del handoff**: ✅ Proyecto listo para Sprint 2  
-**Siguiente milestone**: Implementar detección automática de viajes  
-**Blocker actual**: Ninguno (Firebase configuración es opcional para desarrollo)
+- **Código**: Nombres de variables, funciones, interfaces y comentarios técnicos en **inglés**.
+- **Interfaz de Usuario**: Textos, mensajes de error y etiquetas para el usuario en **español**.
+- **Variables de Entorno**: Las claves de Firebase se configuran en `.env.local` y nunca se suben al repositorio. Usar `.env.example` como plantilla.
